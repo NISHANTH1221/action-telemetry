@@ -1,5 +1,7 @@
+pub mod cgroup;
 pub mod cpu;
 pub mod disk;
+pub mod docker;
 pub mod fs;
 pub mod mem;
 pub mod net;
