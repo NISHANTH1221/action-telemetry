@@ -3,6 +3,7 @@ pub mod disk;
 pub mod fs;
 pub mod mem;
 pub mod net;
+pub mod procs;
 pub mod psi;
 
 use std::path::{Path, PathBuf};
