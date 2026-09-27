@@ -1,6 +1,9 @@
 pub mod cli;
 pub mod record;
+pub mod run;
+pub mod selfstat;
 pub mod sources;
+pub mod writer;
 
 #[cfg(test)]
 pub(crate) fn test_temp(name: &str) -> std::path::PathBuf {
