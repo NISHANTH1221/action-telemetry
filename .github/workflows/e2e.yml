@@ -1,0 +1,138 @@
+name: e2e
+on:
+  push: { branches: [main, master] }
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - { runner: ubuntu-latest, arch: x64, target: x86_64-unknown-linux-musl }
+          - { runner: ubuntu-24.04-arm, arch: arm64, target: aarch64-unknown-linux-musl }
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update -q && sudo apt-get install -yq musl-tools
+      - uses: dtolnay/rust-toolchain@stable
+        with: { targets: '${{ matrix.target }}' }
+      - run: cargo build --release --locked --target ${{ matrix.target }}
+        working-directory: collector
+      - run: mkdir -p out && cp collector/target/${{ matrix.target }}/release/collector out/collector-linux-${{ matrix.arch }}
+      - uses: actions/upload-artifact@v4
+        with: { name: 'e2e-bin-${{ matrix.arch }}', path: out/, retention-days: 1 }
+      - if: matrix.arch == 'x64'
+        uses: actions/setup-node@v4
+        with: { node-version: 24, cache: npm }
+      - if: matrix.arch == 'x64'
+        run: npm ci && npm run build
+      - if: matrix.arch == 'x64'
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-js
+          retention-days: 1
+          path: |
+            dist/main
+            dist/post
+
+  normal:
+    needs: build
+    strategy: { matrix: { runner: [ubuntu-latest, ubuntu-24.04-arm] } }
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/prepare-e2e
+      - uses: ./
+      - name: Busy work
+        run: |
+          for i in 1 2 3; do (yes > /dev/null & A=$!; yes > /dev/null & B=$!; sleep 3; kill $A $B); done
+          dd if=/dev/zero of=big bs=1M count=200 conv=fdatasync && rm big
+
+  failing-step:
+    needs: build
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/prepare-e2e
+      - uses: ./
+      - run: sleep 3 && exit 1
+
+  host-oom:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/prepare-e2e
+      - uses: ./
+      - name: Trigger host OOM
+        run: |
+          sleep 3
+          sudo systemd-run --scope -p MemoryMax=200M -p MemorySwapMax=0 python3 -c "a = bytearray(400 * 1024 * 1024)" || true
+          sleep 3
+
+  container-oom:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/prepare-e2e
+      - run: docker pull -q python:3.12-alpine
+      - uses: ./
+      - name: Trigger container OOM
+        run: docker run --name oomy -m 64m --memory-swap 64m python:3.12-alpine sh -c "sleep 3; python -c 'a = bytearray(200 * 1024 * 1024)'; sleep 6"
+
+  service-container:
+    needs: build
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env: { POSTGRES_PASSWORD: postgres }
+        options: --health-cmd pg_isready --health-interval 2s --health-timeout 5s --health-retries 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/prepare-e2e
+      - uses: ./
+      - run: sleep 10
+
+  # The jobs API is readable without `actions: read` on public repos, so a
+  # permission-less token doesn't force the fallback everywhere. An invalid
+  # token makes the API reject the call (401) on any repo.
+  steps-api-failure:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions: { contents: read }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/prepare-e2e
+      - uses: ./
+        with:
+          github-token: not-a-valid-token
+      - run: sleep 3
+
+  overhead:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/prepare-e2e
+      - run: sudo apt-get update -q && sudo apt-get install -yq stress-ng
+      - uses: ./
+      - run: stress-ng --cpu 1 --vm 1 --vm-bytes 256M --timeout 300s --metrics-brief
+
+  verify:
+    needs: [normal, failing-step, host-oom, container-oom, service-container, steps-api-failure, overhead]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24, cache: npm }
+      - run: npm ci
+      - uses: actions/download-artifact@v4
+        with: { pattern: ci-telemetry-*, path: artifacts }
+      - run: node scripts/verify-e2e.mjs artifacts

@@ -1,0 +1,11 @@
+name: prepare-e2e
+description: 'Places freshly built collector binaries and JS bundles into dist/ for `uses: ./`'
+runs:
+  using: composite
+  steps:
+    - uses: actions/download-artifact@v4
+      with: { pattern: e2e-bin-*, path: dist/bin, merge-multiple: true }
+    - uses: actions/download-artifact@v4
+      with: { name: e2e-js, path: dist }
+    - shell: bash
+      run: chmod +x dist/bin/*

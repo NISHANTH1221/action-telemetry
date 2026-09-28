@@ -1,0 +1,49 @@
+name: Bug report
+description: Something in the action, the collector or the report doesn't work as documented
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for the report! The `report.json` from the affected run usually lets us pinpoint the problem.
+  - type: input
+    id: version
+    attributes:
+      label: Action version
+      description: The ref you use, e.g. `v1`, `v1.2.0` or a commit SHA.
+    validations:
+      required: true
+  - type: dropdown
+    id: runner
+    attributes:
+      label: Runner type
+      options:
+        - GitHub-hosted (x64)
+        - GitHub-hosted (arm64)
+        - Self-hosted VM / bare metal
+        - Self-hosted in a container / Kubernetes (e.g. ARC)
+        - Job uses `container:`
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened, and what did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: workflow
+    attributes:
+      label: Minimal workflow snippet
+      render: yaml
+  - type: textarea
+    id: capabilities
+    attributes:
+      label: "`capabilities` and `collector` blocks from report.json"
+      description: Paste them from the artifact's report.json, if one was uploaded.
+      render: json
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant log lines
+      description: Any `ci-telemetry:` warnings from the action's step and its post step.
+      render: text
