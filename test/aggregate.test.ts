@@ -26,6 +26,19 @@ describe('stepAt', () => {
   });
 });
 
+describe('stale in-progress steps', () => {
+  const stale: StepTiming[] = [
+    { name: 'A', number: 1, conclusion: null, started_at: T0, completed_at: null },
+    { name: 'B', number: 2, conclusion: null, started_at: T0 + 3, completed_at: null },
+  ];
+  it('ends an in-progress step where the next started step begins', () => {
+    const stats = aggregateSteps(parsed({ samples: [makeSample(T0 + 1), makeSample(T0 + 4)] }), stale);
+    expect(stats.map((s) => [s.name, s.samples, s.duration_s])).toEqual([['A', 1, 3], ['B', 1, 1]]);
+    expect(stepAt(T0 + 4, stale)?.name).toBe('B');
+    expect(stepAt(T0 + 1, stale)?.name).toBe('A');
+  });
+});
+
 describe('aggregateSteps', () => {
   const stats = aggregateSteps(parsed({ samples }), steps);
 

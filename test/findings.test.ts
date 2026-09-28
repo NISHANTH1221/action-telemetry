@@ -55,4 +55,9 @@ describe('computeFindings', () => {
     expect(f[1].message).toBe('Container db was OOM-killed');
     expect(f[2].message).toContain('collector was terminated early');
   });
+
+  it('states a kernel-confirmed collector kill plainly', () => {
+    const f = computeFindings({ steps: null, totals: totals(), oom: [{ t: 2, process: 'ci-telemetry collector', pid: 77, source: 'collector', step: null }] });
+    expect(f[0].message).toBe(`The telemetry collector was OOM-killed at ${new Date(2000).toISOString()}; later data is missing`);
+  });
 });

@@ -83,6 +83,22 @@ describe('runPost', () => {
     expect(log.uploads[0].files).toEqual(['/d/report.json', '/d/samples.ndjson']);
   });
 
+  it('still summarises and uploads when report.json cannot be written', async () => {
+    const { d, files, log } = deps();
+    d.writeText = (f, t) => { if (f.endsWith('report.json')) throw new Error('ENOSPC'); files[f] = t; };
+    await runPost(d);
+    expect(log.warnings).toEqual(['ci-telemetry: could not write report.json: ENOSPC']);
+    expect(log.summaries[0]).toContain('## CI telemetry');
+    expect(log.uploads[0].files).toEqual(['/d/samples.ndjson', '/d/report.html']);
+  });
+
+  it('attributes a kernel OOM kill of the saved collector pid to the collector only', async () => {
+    const line = `${new Date((T0 + 2) * 1000).toISOString().replace('.000Z', ',0+00:00')} Out of memory: Killed process 42 (collector-linux)`;
+    const { d, files } = deps({ stop: async () => 'not-running', readDmesg: async () => line, readText: (f) => (f === '/d/samples.ndjson' ? ndjson([META, makeSample(T0 + 1)]) : null) });
+    await runPost(d);
+    expect(JSON.parse(files['/d/report.json']).oom_events.map((e: any) => [e.source, e.pid])).toEqual([['collector', 42]]);
+  });
+
   it('never rejects, even if a dependency throws unexpectedly', async () => {
     const { d, log } = deps({ readText: () => { throw new Error('EIO'); }, fetchSteps: () => Promise.reject(new Error('boom')) });
     await expect(runPost(d)).resolves.toBeUndefined();

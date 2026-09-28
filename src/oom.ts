@@ -65,8 +65,21 @@ export function containerOomEvents(samples: Sample[], names: Map<string, { name:
   return out;
 }
 
-/** The collector has oom_score_adj 1000: if it vanished before post, memory ran out. */
-export function collectorOomEvent(p: ParsedSamples, stop: StopResult | 'not-started'): OomEvent[] {
-  if (stop !== 'not-running' || p.end !== null || p.samples.length === 0) return [];
+/**
+ * The collector has oom_score_adj 1000: if it vanished before post, memory most likely ran out.
+ * With the kernel log available (`kernel` not null) only a logged OOM kill of `collectorPid` counts.
+ */
+export function collectorOomEvent(
+  p: ParsedSamples,
+  stop: StopResult | 'not-started',
+  kernel: OomEvent[] | null = null,
+  collectorPid: number | null = null,
+): OomEvent[] {
+  if (stop !== 'not-running' || p.end !== null) return [];
+  if (kernel !== null) {
+    const kill = kernel.find((e) => collectorPid !== null && e.pid === collectorPid);
+    return kill ? [{ t: kill.t, process: 'ci-telemetry collector', pid: collectorPid, source: 'collector', step: null }] : [];
+  }
+  if (p.samples.length === 0) return [];
   return [{ t: p.samples[p.samples.length - 1].t, process: 'ci-telemetry collector', pid: null, source: 'collector', step: null }];
 }

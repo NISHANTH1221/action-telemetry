@@ -3,7 +3,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { collectorArgs, ProcessOps, startCollector, StartOptions, stopCollector } from '../src/collector-control';
+import { collectorArgs, ProcessOps, realProcessOps, startCollector, StartOptions, stopCollector } from '../src/collector-control';
 
 function fakeSpawn(pid: number | undefined) {
   const calls: { cmd: string; args: string[]; opts: any }[] = [];
@@ -93,5 +93,16 @@ describe('stopCollector', () => {
     const o = ops(Infinity);
     expect(await stopCollector(1, o, 200)).toBe('killed');
     expect(o.signals).toEqual(['SIGTERM', 'SIGKILL']);
+  });
+
+  it('does not signal a reused pid that is no longer the collector', async () => {
+    const o = { ...ops(1), isCollector: () => false };
+    expect(await stopCollector(1, o)).toBe('not-running');
+    expect(o.signals).toEqual([]);
+  });
+
+  it('checks /proc/<pid>/comm only where /proc exists', () => {
+    // This test process is node, not the collector: rejected on Linux, unchecked (true) elsewhere.
+    expect(realProcessOps.isCollector?.(process.pid)).toBe(!fs.existsSync('/proc/self/comm'));
   });
 });

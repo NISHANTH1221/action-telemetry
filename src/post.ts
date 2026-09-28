@@ -69,10 +69,16 @@ async function postInner(d: PostDeps): Promise<void> {
   if (steps.error) d.warning(`ci-telemetry: per-step breakdown unavailable: ${steps.error}`);
   const dmesg = await d.readDmesg().catch(() => null);
 
-  const report = buildReport({ parsed, steps, dmesg, stopResult, env: d.env, now: d.now() });
-  const reportPath = path.join(dataDir, 'report.json');
-  d.writeText(reportPath, JSON.stringify(report, null, 2));
-  const files = [reportPath];
+  const collectorPid = Number.isInteger(pid) && pid > 0 ? pid : null;
+  const report = buildReport({ parsed, steps, dmesg, stopResult, collectorPid, env: d.env, now: d.now() });
+  const files: string[] = [];
+  try {
+    const reportPath = path.join(dataDir, 'report.json');
+    d.writeText(reportPath, JSON.stringify(report, null, 2));
+    files.push(reportPath);
+  } catch (e) {
+    d.warning(`ci-telemetry: could not write report.json: ${msg(e)}`);
+  }
   if (raw !== null) files.push(dataFile);
 
   if (d.inputs.htmlReport) {

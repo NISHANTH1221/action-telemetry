@@ -4,6 +4,9 @@ import schema from '../schema/report.schema.json';
 import { buildReport } from '../src/report';
 import { makeEnd, makeReport, makeSample, parsed, T0 } from './fixtures';
 
+const kill = (t: number, pid: number, name: string) =>
+  `${new Date(t * 1000).toISOString().replace('.000Z', ',0+00:00')} Out of memory: Killed process ${pid} (${name})`;
+
 const validate = new Ajv({ allErrors: true, strict: false }).compile(schema);
 
 describe('buildReport', () => {
@@ -22,8 +25,9 @@ describe('buildReport', () => {
     const r = buildReport({
       parsed: parsed({ meta: null, samples: [makeSample(T0 + 1)] }),
       steps: { steps: null, error: 'GitHub API returned 403' },
-      dmesg: `${new Date((T0 + 1) * 1000).toISOString().replace('.000Z', ',0+00:00')} Out of memory: Killed process 9 (cc1plus)`,
+      dmesg: [kill(T0 + 1, 9, 'cc1plus'), kill(T0 + 2, 77, 'collector-linux')].join('\n'),
       stopResult: 'not-running',
+      collectorPid: 77,
       env: {},
       now: T0 + 10,
     });
@@ -35,12 +39,40 @@ describe('buildReport', () => {
     expect(r.findings.filter((f) => f.code === 'oom')).toHaveLength(2);
   });
 
+  describe('collector OOM detection', () => {
+    const dead = (dmesg: string | null) => buildReport({
+      parsed: parsed({ samples: [makeSample(T0 + 1)] }), steps: { steps: null }, dmesg,
+      stopResult: 'not-running', collectorPid: 77, env: {}, now: T0 + 10,
+    });
+    it('reports a dmesg-confirmed collector kill once, as a collector event', () => {
+      const r = dead(kill(T0 + 2, 77, 'collector-linux'));
+      expect(r.oom_events.map((e) => [e.source, e.pid, e.t])).toEqual([['collector', 77, T0 + 2]]);
+      expect(r.findings.filter((f) => f.code === 'oom')).toHaveLength(1);
+    });
+    it('does not blame OOM when dmesg shows no kill of the collector', () => {
+      expect(dead(kill(T0 + 2, 9, 'cc1plus')).oom_events.map((e) => e.source)).toEqual(['kernel']);
+      expect(dead('').oom_events).toEqual([]);
+    });
+    it('falls back to the heuristic when dmesg is unavailable', () => {
+      expect(dead(null).oom_events.map((e) => [e.source, e.pid])).toEqual([['collector', null]]);
+    });
+  });
+
+  it('maps an unknown collector end reason to "missing"', () => {
+    const r = buildReport({
+      parsed: parsed({ samples: [makeSample(T0 + 1)], end: { ...makeEnd(T0 + 2), reason: 'weird' } }),
+      steps: { steps: null }, dmesg: null, stopResult: 'stopped', collectorPid: null, env: {}, now: T0 + 10,
+    });
+    expect(r.collector.end_reason).toBe('missing');
+    expect(validate(r), JSON.stringify(validate.errors)).toBe(true);
+  });
+
   it('assigns OOM events to steps', () => {
     const r = buildReport({
       parsed: parsed({ samples: [makeSample(T0 + 1)], end: makeEnd(T0 + 2) }),
       steps: { steps: [{ name: 'Build', number: 1, conclusion: 'failure', started_at: T0, completed_at: T0 + 5 }] },
       dmesg: `${new Date((T0 + 1) * 1000).toISOString().replace('.000Z', ',0+00:00')} Out of memory: Killed process 9 (cc1plus)`,
-      stopResult: 'stopped', env: {}, now: T0 + 10,
+      stopResult: 'stopped', collectorPid: null, env: {}, now: T0 + 10,
     });
     expect(r.oom_events[0].step).toBe('Build');
   });

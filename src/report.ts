@@ -30,11 +30,15 @@ export interface Report {
   };
 }
 
+const END_REASONS = ['sigterm', 'watch-pid-gone', 'max-duration'] as const;
+
 export interface BuildReportInput {
   parsed: ParsedSamples;
   steps: StepsResult;
   dmesg: string | null;
   stopResult: StopResult | 'not-started';
+  /** The collector's pid saved by main, to recognise its own kernel OOM kill. */
+  collectorPid: number | null;
   env: Record<string, string | undefined>;
   now: number;
 }
@@ -43,17 +47,21 @@ export function buildReport(i: BuildReportInput): Report {
   const p = i.parsed;
   const steps = i.steps.steps;
   const from = p.meta?.t ?? p.samples[0]?.t ?? i.now;
+  const kernel = i.dmesg !== null ? parseDmesg(i.dmesg, from, i.now) : null;
   const oom = [
-    ...(i.dmesg !== null ? parseDmesg(i.dmesg, from, i.now) : []),
+    // A kill of the collector itself is reported once, as the collector event.
+    ...(kernel ?? []).filter((e) => i.collectorPid === null || e.pid !== i.collectorPid),
     ...containerOomEvents(p.samples, p.containers),
-    ...collectorOomEvent(p, i.stopResult),
+    ...collectorOomEvent(p, i.stopResult, kernel, i.collectorPid),
   ]
     .map((e) => ({ ...e, step: steps ? stepAt(e.t, steps)?.name ?? null : null }))
     .sort((a, b) => a.t - b.t);
 
   const stepStats = steps ? aggregateSteps(p, steps) : null;
   const totals = jobTotals(p);
-  const endReason = (p.end?.reason ?? (i.stopResult === 'not-started' ? 'not-started' : 'missing')) as Report['collector']['end_reason'];
+  const endReason: Report['collector']['end_reason'] = p.end
+    ? (END_REASONS.find((r) => r === p.end?.reason) ?? 'missing')
+    : i.stopResult === 'not-started' ? 'not-started' : 'missing';
   const wall = p.end && p.meta ? p.end.t - p.meta.t : 0;
   const e = i.env;
 

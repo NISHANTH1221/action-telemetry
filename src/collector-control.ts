@@ -52,6 +52,8 @@ export type StopResult = 'stopped' | 'killed' | 'not-running';
 export interface ProcessOps {
   kill(pid: number, sig: NodeJS.Signals): void;
   isAlive(pid: number): boolean;
+  /** False when the pid now belongs to another process (pid reuse); omitted or true = assume it is ours. */
+  isCollector?(pid: number): boolean;
   sleep(ms: number): Promise<void>;
 }
 
@@ -66,11 +68,19 @@ export const realProcessOps: ProcessOps = {
       try { process.kill(pid, 0); return true; } catch { return false; }
     }
   },
+  isCollector: (pid) => {
+    try {
+      // comm is truncated to 15 chars: collector-linux-x64 → "collector-linux".
+      return fs.readFileSync(`/proc/${pid}/comm`, 'utf8').startsWith('collector-linux');
+    } catch {
+      return true; // no /proc (macOS) or unreadable: skip the check
+    }
+  },
   sleep: (ms) => new Promise((r) => setTimeout(r, ms)),
 };
 
 export async function stopCollector(pid: number, ops: ProcessOps = realProcessOps, timeoutMs = 2000): Promise<StopResult> {
-  if (!ops.isAlive(pid)) return 'not-running';
+  if (!ops.isAlive(pid) || ops.isCollector?.(pid) === false) return 'not-running';
   try { ops.kill(pid, 'SIGTERM'); } catch { return 'not-running'; }
   for (let waited = 0; waited < timeoutMs; waited += 50) {
     await ops.sleep(50);

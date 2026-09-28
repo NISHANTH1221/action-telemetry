@@ -21,7 +21,10 @@ export const THRESHOLDS = {
 function oomMessage(e: OomEvent): string {
   const where = e.step ? ` during step "${e.step}"` : '';
   if (e.source === 'collector') {
-    return `The telemetry collector was terminated early at ${iso(e.t)}${where} (most likely OOM-killed); later data is missing`;
+    // pid is set only when the kernel log confirmed the kill.
+    const how = e.pid !== null ? 'was OOM-killed' : 'was terminated early';
+    const hint = e.pid !== null ? '' : ' (most likely OOM-killed)';
+    return `The telemetry collector ${how} at ${iso(e.t)}${where}${hint}; later data is missing`;
   }
   if (e.source === 'container') return `Container ${e.process} was OOM-killed${where}`;
   return `OOM kill of ${e.process} (pid ${e.pid})${where}`;

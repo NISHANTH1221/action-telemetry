@@ -25740,10 +25740,19 @@ exports.realProcessOps = {
             }
         }
     },
+    isCollector: (pid) => {
+        try {
+            // comm is truncated to 15 chars: collector-linux-x64 → "collector-linux".
+            return fs.readFileSync(`/proc/${pid}/comm`, 'utf8').startsWith('collector-linux');
+        }
+        catch {
+            return true; // no /proc (macOS) or unreadable: skip the check
+        }
+    },
     sleep: (ms) => new Promise((r) => setTimeout(r, ms)),
 };
 async function stopCollector(pid, ops = exports.realProcessOps, timeoutMs = 2000) {
-    if (!ops.isAlive(pid))
+    if (!ops.isAlive(pid) || ops.isCollector?.(pid) === false)
         return 'not-running';
     try {
         ops.kill(pid, 'SIGTERM');

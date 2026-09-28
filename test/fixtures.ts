@@ -58,6 +58,7 @@ export function makeReport(): { report: Report; samples: Sample[] } {
     },
     dmesg: null,
     stopResult: 'stopped',
+    collectorPid: 4242,
     env: {
       GITHUB_REPOSITORY: 'o/r', GITHUB_WORKFLOW: 'CI', GITHUB_JOB: 'build', GITHUB_RUN_ID: '1',
       GITHUB_RUN_ATTEMPT: '1', GITHUB_SHA: 'abc123', GITHUB_REF: 'refs/heads/main', RUNNER_NAME: 'GitHub Actions 1',

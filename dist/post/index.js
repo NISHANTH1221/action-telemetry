@@ -77622,9 +77622,13 @@ exports.aggregateContainers = aggregateContainers;
 exports.jobTotals = jobTotals;
 const format_1 = __nccwpck_require__(16264);
 const busy = (s) => s.cpu.usr + s.cpu.sys;
-const inStep = (t, s) => t >= s.started_at && (s.completed_at === null || t < s.completed_at);
+/** When step i stops owning samples: its completion, or the next step's start if earlier (stale in-progress data). */
+function effectiveEnd(steps, i) {
+    return Math.min(steps[i].completed_at ?? Infinity, steps[i + 1]?.started_at ?? Infinity);
+}
+const inStep = (t, steps, i) => t >= steps[i].started_at && t < effectiveEnd(steps, i);
 function stepAt(t, steps) {
-    return steps.find((s) => inStep(t, s)) ?? null;
+    return steps.find((_, i) => inStep(t, steps, i)) ?? null;
 }
 function extreme(vals, pick) {
     let m = null;
@@ -77653,11 +77657,12 @@ function totalOf(samples, dts, f) {
 function aggregateSteps(p, steps) {
     const dts = sampleDurations(p);
     const lastT = p.samples.length ? p.samples[p.samples.length - 1].t : null;
-    return steps.map((step) => {
-        const idx = p.samples.flatMap((s, i) => (inStep(s.t, step) ? [i] : []));
+    return steps.map((step, n) => {
+        const idx = p.samples.flatMap((s, i) => (inStep(s.t, steps, n) ? [i] : []));
         const ss = idx.map((i) => p.samples[i]);
         const ds = idx.map((i) => dts[i]);
-        const end = step.completed_at ?? lastT ?? step.started_at;
+        const eff = effectiveEnd(steps, n);
+        const end = Number.isFinite(eff) ? eff : lastT ?? step.started_at;
         return {
             name: step.name,
             number: step.number,
@@ -77823,10 +77828,19 @@ exports.realProcessOps = {
             }
         }
     },
+    isCollector: (pid) => {
+        try {
+            // comm is truncated to 15 chars: collector-linux-x64 → "collector-linux".
+            return fs.readFileSync(`/proc/${pid}/comm`, 'utf8').startsWith('collector-linux');
+        }
+        catch {
+            return true; // no /proc (macOS) or unreadable: skip the check
+        }
+    },
     sleep: (ms) => new Promise((r) => setTimeout(r, ms)),
 };
 async function stopCollector(pid, ops = exports.realProcessOps, timeoutMs = 2000) {
-    if (!ops.isAlive(pid))
+    if (!ops.isAlive(pid) || ops.isCollector?.(pid) === false)
         return 'not-running';
     try {
         ops.kill(pid, 'SIGTERM');
@@ -77897,29 +77911,43 @@ const oom_1 = __nccwpck_require__(74086);
 const post_1 = __nccwpck_require__(86661);
 const steps_1 = __nccwpck_require__(36992);
 const upload_1 = __nccwpck_require__(41550);
-const client = new artifact_1.DefaultArtifactClient();
-(0, post_1.runPost)({
-    getState: core.getState,
-    env: process.env,
-    inputs: (0, inputs_1.readInputs)(core.getInput, () => { }), // main already warned about bad inputs
-    stop: (pid) => (0, collector_control_1.stopCollector)(pid),
-    readText: (f) => {
-        try {
-            return fs.readFileSync(f, 'utf8');
-        }
-        catch {
-            return null;
-        }
-    },
-    writeText: (f, t) => fs.writeFileSync(f, t),
-    fetchSteps: steps_1.fetchSteps,
-    readDmesg: () => (0, oom_1.readDmesg)(),
-    writeSummary: async (md) => { await core.summary.addRaw(md).write(); },
-    upload: (name, files, root, days) => (0, upload_1.uploadWithRetry)(client, name, files, root, days),
-    warning: (m) => core.warning(m),
-    info: core.info,
-    now: () => Date.now() / 1000,
-}).catch(() => { });
+// Nothing at module scope may throw: the action must never fail the user's job.
+try {
+    let inputs = null;
+    try {
+        inputs = (0, inputs_1.readInputs)(core.getInput, () => { }); // main already warned about bad inputs
+    }
+    catch (e) {
+        core.warning(`ci-telemetry: ${e instanceof Error ? e.message : String(e)}`);
+    }
+    if (inputs) {
+        (0, post_1.runPost)({
+            getState: core.getState,
+            env: process.env,
+            inputs,
+            stop: (pid) => (0, collector_control_1.stopCollector)(pid),
+            readText: (f) => {
+                try {
+                    return fs.readFileSync(f, 'utf8');
+                }
+                catch {
+                    return null;
+                }
+            },
+            writeText: (f, t) => fs.writeFileSync(f, t),
+            fetchSteps: steps_1.fetchSteps,
+            readDmesg: () => (0, oom_1.readDmesg)(),
+            writeSummary: async (md) => { await core.summary.addRaw(md).write(); },
+            upload: (name, files, root, days) => (0, upload_1.uploadWithRetry)(new artifact_1.DefaultArtifactClient(), name, files, root, days),
+            warning: (m) => core.warning(m),
+            info: core.info,
+            now: () => Date.now() / 1000,
+        }).catch(() => { });
+    }
+}
+catch {
+    // Defence in depth: runPost already never rejects.
+}
 
 
 /***/ }),
@@ -77944,7 +77972,10 @@ exports.THRESHOLDS = {
 function oomMessage(e) {
     const where = e.step ? ` during step "${e.step}"` : '';
     if (e.source === 'collector') {
-        return `The telemetry collector was terminated early at ${(0, format_1.iso)(e.t)}${where} (most likely OOM-killed); later data is missing`;
+        // pid is set only when the kernel log confirmed the kill.
+        const how = e.pid !== null ? 'was OOM-killed' : 'was terminated early';
+        const hint = e.pid !== null ? '' : ' (most likely OOM-killed)';
+        return `The telemetry collector ${how} at ${(0, format_1.iso)(e.t)}${where}${hint}; later data is missing`;
     }
     if (e.source === 'container')
         return `Container ${e.process} was OOM-killed${where}`;
@@ -78169,9 +78200,18 @@ function containerOomEvents(samples, names) {
     }
     return out;
 }
-/** The collector has oom_score_adj 1000: if it vanished before post, memory ran out. */
-function collectorOomEvent(p, stop) {
-    if (stop !== 'not-running' || p.end !== null || p.samples.length === 0)
+/**
+ * The collector has oom_score_adj 1000: if it vanished before post, memory most likely ran out.
+ * With the kernel log available (`kernel` not null) only a logged OOM kill of `collectorPid` counts.
+ */
+function collectorOomEvent(p, stop, kernel = null, collectorPid = null) {
+    if (stop !== 'not-running' || p.end !== null)
+        return [];
+    if (kernel !== null) {
+        const kill = kernel.find((e) => collectorPid !== null && e.pid === collectorPid);
+        return kill ? [{ t: kill.t, process: 'ci-telemetry collector', pid: collectorPid, source: 'collector', step: null }] : [];
+    }
+    if (p.samples.length === 0)
         return [];
     return [{ t: p.samples[p.samples.length - 1].t, process: 'ci-telemetry collector', pid: null, source: 'collector', step: null }];
 }
@@ -78268,10 +78308,17 @@ async function postInner(d) {
     if (steps.error)
         d.warning(`ci-telemetry: per-step breakdown unavailable: ${steps.error}`);
     const dmesg = await d.readDmesg().catch(() => null);
-    const report = (0, report_1.buildReport)({ parsed, steps, dmesg, stopResult, env: d.env, now: d.now() });
-    const reportPath = path.join(dataDir, 'report.json');
-    d.writeText(reportPath, JSON.stringify(report, null, 2));
-    const files = [reportPath];
+    const collectorPid = Number.isInteger(pid) && pid > 0 ? pid : null;
+    const report = (0, report_1.buildReport)({ parsed, steps, dmesg, stopResult, collectorPid, env: d.env, now: d.now() });
+    const files = [];
+    try {
+        const reportPath = path.join(dataDir, 'report.json');
+        d.writeText(reportPath, JSON.stringify(report, null, 2));
+        files.push(reportPath);
+    }
+    catch (e) {
+        d.warning(`ci-telemetry: could not write report.json: ${msg(e)}`);
+    }
     if (raw !== null)
         files.push(dataFile);
     if (d.inputs.htmlReport) {
@@ -78638,20 +78685,25 @@ const aggregate_1 = __nccwpck_require__(920);
 const findings_1 = __nccwpck_require__(81001);
 const format_1 = __nccwpck_require__(16264);
 const oom_1 = __nccwpck_require__(74086);
+const END_REASONS = ['sigterm', 'watch-pid-gone', 'max-duration'];
 function buildReport(i) {
     const p = i.parsed;
     const steps = i.steps.steps;
     const from = p.meta?.t ?? p.samples[0]?.t ?? i.now;
+    const kernel = i.dmesg !== null ? (0, oom_1.parseDmesg)(i.dmesg, from, i.now) : null;
     const oom = [
-        ...(i.dmesg !== null ? (0, oom_1.parseDmesg)(i.dmesg, from, i.now) : []),
+        // A kill of the collector itself is reported once, as the collector event.
+        ...(kernel ?? []).filter((e) => i.collectorPid === null || e.pid !== i.collectorPid),
         ...(0, oom_1.containerOomEvents)(p.samples, p.containers),
-        ...(0, oom_1.collectorOomEvent)(p, i.stopResult),
+        ...(0, oom_1.collectorOomEvent)(p, i.stopResult, kernel, i.collectorPid),
     ]
         .map((e) => ({ ...e, step: steps ? (0, aggregate_1.stepAt)(e.t, steps)?.name ?? null : null }))
         .sort((a, b) => a.t - b.t);
     const stepStats = steps ? (0, aggregate_1.aggregateSteps)(p, steps) : null;
     const totals = (0, aggregate_1.jobTotals)(p);
-    const endReason = (p.end?.reason ?? (i.stopResult === 'not-started' ? 'not-started' : 'missing'));
+    const endReason = p.end
+        ? (END_REASONS.find((r) => r === p.end?.reason) ?? 'missing')
+        : i.stopResult === 'not-started' ? 'not-started' : 'missing';
     const wall = p.end && p.meta ? p.end.t - p.meta.t : 0;
     const e = i.env;
     const report = {

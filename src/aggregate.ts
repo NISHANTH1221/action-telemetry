@@ -54,10 +54,14 @@ export interface JobTotals {
 }
 
 const busy = (s: Sample) => s.cpu.usr + s.cpu.sys;
-const inStep = (t: number, s: StepTiming) => t >= s.started_at && (s.completed_at === null || t < s.completed_at);
+/** When step i stops owning samples: its completion, or the next step's start if earlier (stale in-progress data). */
+function effectiveEnd(steps: StepTiming[], i: number): number {
+  return Math.min(steps[i].completed_at ?? Infinity, steps[i + 1]?.started_at ?? Infinity);
+}
+const inStep = (t: number, steps: StepTiming[], i: number) => t >= steps[i].started_at && t < effectiveEnd(steps, i);
 
 export function stepAt(t: number, steps: StepTiming[]): StepTiming | null {
-  return steps.find((s) => inStep(t, s)) ?? null;
+  return steps.find((_, i) => inStep(t, steps, i)) ?? null;
 }
 
 function extreme(vals: Array<number | null | undefined>, pick: (a: number, b: number) => number): number | null {
@@ -88,11 +92,12 @@ function totalOf(samples: Sample[], dts: number[], f: (s: Sample) => number): nu
 export function aggregateSteps(p: ParsedSamples, steps: StepTiming[]): StepStats[] {
   const dts = sampleDurations(p);
   const lastT = p.samples.length ? p.samples[p.samples.length - 1].t : null;
-  return steps.map((step) => {
-    const idx = p.samples.flatMap((s, i) => (inStep(s.t, step) ? [i] : []));
+  return steps.map((step, n) => {
+    const idx = p.samples.flatMap((s, i) => (inStep(s.t, steps, n) ? [i] : []));
     const ss = idx.map((i) => p.samples[i]);
     const ds = idx.map((i) => dts[i]);
-    const end = step.completed_at ?? lastT ?? step.started_at;
+    const eff = effectiveEnd(steps, n);
+    const end = Number.isFinite(eff) ? eff : lastT ?? step.started_at;
     return {
       name: step.name,
       number: step.number,
