@@ -40,4 +40,20 @@ describe('parseSamples', () => {
     expect(p.meta).toBeNull();
     expect(p.samples).toEqual([]);
   });
+
+  it('rejects meta/end/container/downsample records with the wrong shape', () => {
+    const p = parseSamples(
+      ndjson([
+        { type: 'meta', t: 1 },
+        { type: 'end', t: 1, reason: 'sigterm' },
+        { type: 'container', t: 1, id: 'x' },
+        { type: 'downsample', t: 1 },
+      ])
+    );
+    expect(p.meta).toBeNull();
+    expect(p.end).toBeNull();
+    expect(p.containers.size).toBe(0);
+    expect(p.downsamples).toHaveLength(0);
+    expect(p.invalidLines).toBe(4);
+  });
 });

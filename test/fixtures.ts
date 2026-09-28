@@ -29,6 +29,6 @@ export function parsed(o: Partial<ParsedSamples> = {}): ParsedSamples {
   return { meta: META, samples: [], containers: new Map(), downsamples: [], end: null, invalidLines: 0, ...o };
 }
 
-export function ndjson(records: any[]): string {
+export function ndjson(records: unknown[]): string {
   return records.map((r) => JSON.stringify(r)).join('\n') + '\n';
 }
