@@ -1,0 +1,164 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ci-telemetry report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "generated_at", "job", "runner", "capabilities", "steps", "totals", "containers", "oom_events", "findings", "collector"],
+  "definitions": {
+    "nnum": { "type": ["number", "null"] },
+    "nstr": { "type": ["string", "null"] },
+    "psiMax": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["cpu_some", "mem_some", "mem_full", "io_some", "io_full"],
+      "properties": {
+        "cpu_some": { "$ref": "#/definitions/nnum" },
+        "mem_some": { "$ref": "#/definitions/nnum" },
+        "mem_full": { "$ref": "#/definitions/nnum" },
+        "io_some": { "$ref": "#/definitions/nnum" },
+        "io_full": { "$ref": "#/definitions/nnum" }
+      }
+    },
+    "step": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "number", "conclusion", "started_at", "completed_at", "duration_s", "samples", "cpu_avg", "cpu_max", "mem_peak", "psi_max", "disk_rd", "disk_wr", "net_rx", "net_tx"],
+      "properties": {
+        "name": { "type": "string" },
+        "number": { "type": "integer" },
+        "conclusion": { "$ref": "#/definitions/nstr" },
+        "started_at": { "type": "string" },
+        "completed_at": { "$ref": "#/definitions/nstr" },
+        "duration_s": { "type": "number", "minimum": 0 },
+        "samples": { "type": "integer", "minimum": 0 },
+        "cpu_avg": { "$ref": "#/definitions/nnum" },
+        "cpu_max": { "$ref": "#/definitions/nnum" },
+        "mem_peak": { "$ref": "#/definitions/nnum" },
+        "psi_max": { "$ref": "#/definitions/psiMax" },
+        "disk_rd": { "type": "number" },
+        "disk_wr": { "type": "number" },
+        "net_rx": { "type": "number" },
+        "net_tx": { "type": "number" }
+      }
+    },
+    "container": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "image", "first_seen", "last_seen", "cpu_avg", "cpu_max", "mem_peak", "oom_kills"],
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "image": { "$ref": "#/definitions/nstr" },
+        "first_seen": { "type": "string" },
+        "last_seen": { "type": "string" },
+        "cpu_avg": { "type": "number" },
+        "cpu_max": { "type": "number" },
+        "mem_peak": { "type": "number" },
+        "oom_kills": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "oom": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["t", "process", "pid", "source", "step"],
+      "properties": {
+        "t": { "type": "number" },
+        "process": { "type": "string" },
+        "pid": { "type": ["integer", "null"] },
+        "source": { "enum": ["kernel", "container", "collector"] },
+        "step": { "$ref": "#/definitions/nstr" }
+      }
+    },
+    "finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["level", "code", "message", "step"],
+      "properties": {
+        "level": { "enum": ["error", "warning"] },
+        "code": { "type": "string" },
+        "message": { "type": "string" },
+        "step": { "$ref": "#/definitions/nstr" }
+      }
+    }
+  },
+  "properties": {
+    "schema_version": { "const": 1 },
+    "generated_at": { "type": "string" },
+    "job": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repository", "workflow", "job", "job_name", "run_id", "run_attempt", "sha", "ref", "runner_name", "url"],
+      "properties": {
+        "repository": { "type": "string" },
+        "workflow": { "type": "string" },
+        "job": { "type": "string" },
+        "job_name": { "$ref": "#/definitions/nstr" },
+        "run_id": { "type": "string" },
+        "run_attempt": { "type": "string" },
+        "sha": { "type": "string" },
+        "ref": { "type": "string" },
+        "runner_name": { "type": "string" },
+        "url": { "$ref": "#/definitions/nstr" }
+      }
+    },
+    "runner": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cpus", "mem_total", "os", "arch", "kernel"],
+      "properties": {
+        "cpus": { "$ref": "#/definitions/nnum" },
+        "mem_total": { "$ref": "#/definitions/nnum" },
+        "os": { "type": "string" },
+        "arch": { "$ref": "#/definitions/nstr" },
+        "kernel": { "$ref": "#/definitions/nstr" }
+      }
+    },
+    "capabilities": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["psi", "docker_cgroups", "docker_socket", "steps_api", "dmesg"],
+      "properties": {
+        "psi": { "type": "boolean" },
+        "docker_cgroups": { "type": "boolean" },
+        "docker_socket": { "type": "boolean" },
+        "steps_api": { "type": "boolean" },
+        "dmesg": { "type": "boolean" }
+      }
+    },
+    "steps": { "oneOf": [{ "type": "null" }, { "type": "array", "items": { "$ref": "#/definitions/step" } }] },
+    "steps_error": { "type": "string" },
+    "totals": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["duration_s", "samples", "cpu_avg", "cpu_max", "mem_peak", "steal_avg", "psi_max", "min_root_free", "min_ws_free", "swap_start", "swap_max"],
+      "properties": {
+        "duration_s": { "type": "number" },
+        "samples": { "type": "integer" },
+        "cpu_avg": { "$ref": "#/definitions/nnum" },
+        "cpu_max": { "$ref": "#/definitions/nnum" },
+        "mem_peak": { "$ref": "#/definitions/nnum" },
+        "steal_avg": { "$ref": "#/definitions/nnum" },
+        "psi_max": { "$ref": "#/definitions/psiMax" },
+        "min_root_free": { "$ref": "#/definitions/nnum" },
+        "min_ws_free": { "$ref": "#/definitions/nnum" },
+        "swap_start": { "$ref": "#/definitions/nnum" },
+        "swap_max": { "$ref": "#/definitions/nnum" }
+      }
+    },
+    "containers": { "type": "array", "items": { "$ref": "#/definitions/container" } },
+    "oom_events": { "type": "array", "items": { "$ref": "#/definitions/oom" } },
+    "findings": { "type": "array", "items": { "$ref": "#/definitions/finding" } },
+    "collector": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["peak_rss", "cpu_seconds", "avg_cpu_pct", "end_reason", "invalid_lines"],
+      "properties": {
+        "peak_rss": { "$ref": "#/definitions/nnum" },
+        "cpu_seconds": { "$ref": "#/definitions/nnum" },
+        "avg_cpu_pct": { "$ref": "#/definitions/nnum" },
+        "end_reason": { "enum": ["sigterm", "watch-pid-gone", "max-duration", "missing", "not-started"] },
+        "invalid_lines": { "type": "integer", "minimum": 0 }
+      }
+    }
+  }
+}
