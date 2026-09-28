@@ -17,7 +17,7 @@ inputs:
     required: false
     default: 'true'
   github-token:
-    description: 'Token used once, in the post step, to read step timings. Needs `actions: read`.'
+    description: 'Token used once, in the post step, to read step timings. Needs `actions: read` on private repos.'
     required: false
     default: '${{ github.token }}'
   artifact-name:

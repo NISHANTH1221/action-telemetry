@@ -111,7 +111,7 @@ docker run --rm -v "$PWD/collector":/w:ro rust:1 bash -c '
 
 You should see a `meta` record, some `sample` records, and an `end` record with `"reason":"sigterm"` whose `self.peak_rss` is well under 5 MB.
 
-To exercise the whole action on real runners, push a branch to your fork. The `e2e` workflow runs every scenario (a normal job on x64 and arm64, a failing step, a host OOM, a container OOM, a service container, a token without `actions: read`, and the overhead budget), and its `verify` job checks every artifact against the schema.
+To exercise the whole action on real runners, push a branch to your fork. The `e2e` workflow runs every scenario (a normal job on x64 and arm64, a failing step, a host OOM, a container OOM, a service container, a rejected steps-API token, and the overhead budget), and its `verify` job checks every artifact against the schema.
 
 ## Design rules you must keep
 

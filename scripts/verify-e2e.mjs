@@ -41,8 +41,8 @@ expect(ctrOom?.oom_events.some((e) => e.source === 'container'), 'container-oom:
 const svc = of('service-container')[0];
 expect(svc?.containers.some((c) => (c.image ?? '').startsWith('postgres:16') && !!c.name), 'service-container: named postgres:16 container');
 
-const noPerm = of('no-permissions')[0];
-expect(noPerm && noPerm.steps === null && typeof noPerm.steps_error === 'string', 'no-permissions: steps null with steps_error');
+const apiFail = of('steps-api-failure')[0];
+expect(apiFail && apiFail.steps === null && typeof apiFail.steps_error === 'string', 'steps-api-failure: steps null with steps_error');
 
 const oh = of('overhead')[0];
 expect(oh?.collector.peak_rss != null && oh.collector.peak_rss <= 5 * 1024 * 1024, `overhead: peak_rss ${oh?.collector.peak_rss} > 5 MiB`);

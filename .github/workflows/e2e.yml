@@ -99,7 +99,10 @@ jobs:
       - uses: ./
       - run: sleep 10
 
-  no-permissions:
+  # The jobs API is readable without `actions: read` on public repos, so a
+  # permission-less token doesn't force the fallback everywhere. An invalid
+  # token makes the API reject the call (401) on any repo.
+  steps-api-failure:
     needs: build
     runs-on: ubuntu-latest
     permissions: { contents: read }
@@ -107,6 +110,8 @@ jobs:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/prepare-e2e
       - uses: ./
+        with:
+          github-token: not-a-valid-token
       - run: sleep 3
 
   overhead:
@@ -120,7 +125,7 @@ jobs:
       - run: stress-ng --cpu 1 --vm 1 --vm-bytes 256M --timeout 300s --metrics-brief
 
   verify:
-    needs: [normal, failing-step, host-oom, container-oom, service-container, no-permissions, overhead]
+    needs: [normal, failing-step, host-oom, container-oom, service-container, steps-api-failure, overhead]
     if: always()
     runs-on: ubuntu-latest
     steps:

@@ -205,7 +205,7 @@ The report then includes a table for each container (CPU, peak memory, OOM kills
 <details>
 <summary><strong>Tight token permissions</strong></summary>
 
-The token is used **once**, in the post step, to call `GET /repos/{owner}/{repo}/actions/runs/{run_id}/attempts/{attempt}/jobs`. It needs `actions: read`. Without it you still get every resource metric and the whole-job charts, just no breakdown by step. The job does not fail.
+The token is used **once**, in the post step, to call `GET /repos/{owner}/{repo}/actions/runs/{run_id}/attempts/{attempt}/jobs`. It needs `actions: read` on private repositories (public repositories' job lists are readable with any token). Without it you still get every resource metric and the whole-job charts, just no breakdown by step. The job does not fail.
 
 ```yaml
 permissions:
@@ -265,7 +265,7 @@ All inputs are optional.
 | `interval` | `1` | Seconds between samples, 1–60. |
 | `process-interval` | `5` | Seconds between top-process snapshots, 0–300 (`0` disables). |
 | `docker` | `true` | Collect CPU, memory, I/O and OOM stats for each container from Docker cgroups. |
-| `github-token` | `${{ github.token }}` | Used once, in the post step, to read step timings. Needs `actions: read`. |
+| `github-token` | `${{ github.token }}` | Used once, in the post step, to read step timings. Needs `actions: read` on private repos. |
 | `artifact-name` | `''` | Empty means auto-generated: `ci-telemetry-<job>-<attempt>-<hash>`. |
 | `retention-days` | `7` | Artifact retention in days, 1–90. |
 | `job-summary` | `true` | Write the step table and findings to the job summary. |
@@ -398,7 +398,7 @@ The collector makes no network connections. The only network use is in `post`: o
 | Symptom | Likely cause | Fix |
 |---|---|---|
 | `telemetry is not supported on <os>/<arch>` notice | Not Linux x64/arm64 | Run the job on a Linux runner |
-| *Per-step breakdown unavailable: GitHub API returned 403* | Token lacks `actions: read` | Add `permissions: { actions: read }` to the job |
+| *Per-step breakdown unavailable: GitHub API returned 401/403* | Invalid token, or (private repo) token lacks `actions: read` | Add `permissions: { actions: read }` to the job |
 | *…no in-progress job found for runner '…'* | Runner name mismatch (rare with custom runner labels) | Report an issue with the run URL |
 | No containers in the report | cgroup v1, or containers in a DinD sidecar | Check `capabilities`; move to cgroup v2 or the host Docker |
 | Containers shown as 12-character IDs | Runner user can't read the Docker socket | Add the user to the `docker` group |
@@ -417,7 +417,7 @@ The collector makes no network connections. The only network use is in `post`: o
 
 | Capability | Used for | Without it |
 |---|---|---|
-| `actions: read` on the token | Step timings | `steps: null` plus `steps_error`; whole-job charts only |
+| `actions: read` on the token (private repos) | Step timings | `steps: null` plus `steps_error`; whole-job charts only |
 | Passwordless `sudo -n dmesg` | Kernel OOM kills | `capabilities.dmesg: false`; container OOMs still detected |
 | Docker socket | Container names and images | Containers labelled by short ID |
 | PSI (`/proc/pressure`) | Pressure metrics and two findings | `capabilities.psi: false` |
