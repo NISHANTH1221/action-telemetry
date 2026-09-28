@@ -1,6 +1,6 @@
 name: e2e
 on:
-  push: { branches: [main] }
+  push: { branches: [main, master] }
   pull_request:
   workflow_dispatch:
 permissions:
@@ -17,7 +17,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: sudo apt-get update -q && sudo apt-get install -yq musl-tools
-      - run: rustup target add ${{ matrix.target }}
+      - uses: dtolnay/rust-toolchain@stable
+        with: { targets: '${{ matrix.target }}' }
       - run: cargo build --release --locked --target ${{ matrix.target }}
         working-directory: collector
       - run: mkdir -p out && cp collector/target/${{ matrix.target }}/release/collector out/collector-linux-${{ matrix.arch }}
@@ -47,7 +48,7 @@ jobs:
       - uses: ./
       - name: Busy work
         run: |
-          for i in 1 2 3; do (yes > /dev/null & P=$!; sleep 3; kill $P); done
+          for i in 1 2 3; do (yes > /dev/null & A=$!; yes > /dev/null & B=$!; sleep 3; kill $A $B); done
           dd if=/dev/zero of=big bs=1M count=200 conv=fdatasync && rm big
 
   failing-step:

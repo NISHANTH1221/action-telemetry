@@ -1,5 +1,5 @@
 name: 'CI Job Telemetry'
-description: 'Per-step CPU, memory, pressure, disk, network and Docker telemetry for a job, collected by a ~2 MB Rust sidecar and uploaded as an artifact.'
+description: 'Per-step CPU, memory, pressure, disk, network and Docker telemetry from a tiny Rust sidecar, uploaded as an artifact.'
 branding:
   icon: 'activity'
   color: 'gray-dark'

@@ -53,7 +53,7 @@ Invalid values fall back to the default and produce a warning; they never fail t
 | Disk I/O | `rd`, `wr` (bytes/s, whole disks only, no partitions or loop devices) | `/proc/diskstats` | every tick |
 | Network | `rx`, `tx` (bytes/s, excluding `lo`) | `/proc/net/dev` | every tick |
 | Filesystem | free bytes on `/` and on `$GITHUB_WORKSPACE` | `statvfs` | every 10 s |
-| Processes | top 5 by CPU% and top 5 by RSS: `pid`, `comm`, `cpu`, `rss` | `/proc/[pid]/stat`, `statm` | `--proc-interval` (default 5 s) |
+| Processes | top 5 by CPU% and top 5 by RSS: `pid`, `comm`, `cpu`, `rss` | `/proc/[pid]/stat` (CPU times; RSS from field 24) | `--proc-interval` (default 5 s) |
 | Containers | `id`, `cpu`, `mem`, `mem_peak`, `io_rd`, `io_wr`, `oom_kills` | cgroup v2 `docker-<id>.scope/{cpu.stat,memory.current,memory.peak,memory.events,io.stat}` | every 2 s |
 
 CPU percentages use two different units, both per the standard Linux convention: **host** CPU (`usr`/`sys`/`iow`/`steal` above) is a percentage of *all* CPUs combined, while **process** and **container** CPU (top-process snapshots, container `cpu`) are each a percentage of *one* core, so a two-thread process on a 4-core runner can read up to 200%.
@@ -66,7 +66,7 @@ CPU percentages use two different units, both per the standard Linux convention:
 
 ## Overhead
 
-The collector is built to stay out of the way: on a 5-minute workload the budget is **peak RSS ≤ 5 MB** and **average CPU ≤ 0.5% of one core**, enforced in this repository's own end-to-end tests. It runs at `nice 19` and sets `/proc/self/oom_score_adj` to `1000`, so it is the first thing the kernel deprioritizes for CPU and the first thing it kills under memory pressure — never your job's own processes. Each report's `collector` block (`peak_rss`, `cpu_seconds`, `avg_cpu_pct`, `end_reason`) records the actual figures measured for that specific run.
+The collector is built to stay out of the way: on a 5-minute workload the budget is **peak RSS ≤ 5 MB** and **average CPU ≤ 0.5% of one core**, enforced in this repository's own end-to-end tests. It runs at `nice 19` and sets `/proc/self/oom_score_adj` to `1000`, so it is the first thing the kernel deprioritizes for CPU, and under memory pressure the kernel prefers to kill the collector before your job's processes. Each report's `collector` block (`peak_rss`, `cpu_seconds`, `avg_cpu_pct`, `end_reason`) records the actual figures measured for that specific run.
 
 ## Permissions and graceful degradation
 
@@ -82,6 +82,7 @@ Every other missing source (no PSI, cgroup v1 instead of v2, and so on) is recor
 - Step boundaries have 1-second resolution (API limit).
 - Metrics start when the action's step runs. Work done in steps before it is not sampled.
 - **Container OOM timing:** Docker removes a container's cgroup the moment it exits. The collector samples containers every 2 s, so a container whose *main process* is OOM-killed usually disappears before its `oom_kill` counter is read — the kernel `dmesg` event (source `kernel`) is the reliable signal in that case. A container OOM is reported reliably via the `container` source only when a non-PID-1 process inside it is killed and the container keeps running.
+- **OOM detection** recognises modern kernel messages ("Killed process …"); the wording of very old kernels isn't parsed.
 - **Linux only.** Any other OS or architecture is a no-op (one `core.notice`, no telemetry, no failure).
 - **GitHub Enterprise Server is not supported** (the `@actions/artifact` v2 client used to upload the report does not support GHES).
 
@@ -101,4 +102,4 @@ npm ci && npm test
 npm run build
 ```
 
-`dist/` (the bundled `main`/`post` JavaScript and the compiled collector binaries) is committed — it's what `runs.using: node24` actually executes — so any change under `src/` or `collector/` must be followed by `npm run build` and the resulting diff to `dist/` must be committed too.
+`dist/main` and `dist/post` (the bundled JavaScript that `runs.using: node24` executes) are committed, so any change under `src/` must be followed by `npm run build` and the resulting `dist/` changes committed too; CI fails if they are stale. The collector binaries in `dist/bin` are **not** committed on `main`: the release workflow builds them and commits them only onto the tag-only release commit.

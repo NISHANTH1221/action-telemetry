@@ -1,6 +1,6 @@
 name: ci
 on:
-  push: { branches: [main] }
+  push: { branches: [main, master] }
   pull_request:
 permissions:
   contents: read
@@ -10,6 +10,8 @@ jobs:
     defaults: { run: { working-directory: collector } }
     steps:
       - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with: { components: 'rustfmt, clippy' }
       - run: cargo fmt --check
       - run: cargo clippy --all-targets --locked -- -D warnings
       - run: cargo test --locked
@@ -24,4 +26,4 @@ jobs:
       - run: npm test
       - run: npm run build
       - name: Committed dist/ matches a fresh build
-        run: git diff --exit-code -- dist/main dist/post || { echo "::error::dist/ is stale. Run 'npm run build' and commit the result."; exit 1; }
+        run: test -z "$(git status --porcelain -- dist/main dist/post)" || { git status --porcelain -- dist/main dist/post; echo "::error::dist/ is stale. Run 'npm run build' and commit the result."; exit 1; }

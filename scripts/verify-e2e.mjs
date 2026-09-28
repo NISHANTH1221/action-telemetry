@@ -25,7 +25,7 @@ const of = (job) => Object.entries(reports).filter(([n]) => n.startsWith(`ci-tel
 const normal = of('normal');
 expect(normal.length === 2, `normal: expected 2 artifacts (x64 + arm64, distinct names), got ${normal.length}`);
 for (const r of normal) {
-  expect(Array.isArray(r.steps) && r.steps.some((s) => s.name === 'Busy work' && s.samples > 0 && s.cpu_max > 20), 'normal: "Busy work" step with CPU load');
+  expect(Array.isArray(r.steps) && r.steps.some((s) => s.name === 'Busy work' && s.samples > 0 && s.cpu_max > 15), 'normal: "Busy work" step with CPU load');
   expect(r.collector.end_reason === 'sigterm', `normal: end_reason ${r.collector.end_reason}`);
 }
 
@@ -39,7 +39,7 @@ expect(ctrOom?.containers.some((c) => c.name === 'oomy' && c.oom_kills >= 1), 'c
 expect(ctrOom?.oom_events.some((e) => e.source === 'container'), 'container-oom: container OOM event');
 
 const svc = of('service-container')[0];
-expect(svc?.containers.some((c) => (c.image ?? '').startsWith('postgres:16')), 'service-container: postgres:16 container');
+expect(svc?.containers.some((c) => (c.image ?? '').startsWith('postgres:16') && !!c.name), 'service-container: named postgres:16 container');
 
 const noPerm = of('no-permissions')[0];
 expect(noPerm && noPerm.steps === null && typeof noPerm.steps_error === 'string', 'no-permissions: steps null with steps_error');

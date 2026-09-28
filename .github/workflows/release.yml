@@ -18,7 +18,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: sudo apt-get update -q && sudo apt-get install -yq musl-tools
-      - run: rustup target add ${{ matrix.target }}
+      - uses: dtolnay/rust-toolchain@stable
+        with: { targets: '${{ matrix.target }}' }
       - run: cargo build --release --locked --target ${{ matrix.target }}
         working-directory: collector
       - run: mkdir -p out && cp collector/target/${{ matrix.target }}/release/collector out/collector-linux-${{ matrix.arch }}
