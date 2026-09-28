@@ -43,8 +43,8 @@ describe('renderHtml', () => {
   });
 
   it('shows step bands, tables and an OK pill when there are no findings', () => {
+    expect(html).toContain('<title>Build | test</title>');
     expect(html).toContain('<title>build · CI telemetry</title>');
-    expect(html).toContain('Build | test');
     expect(html).toContain('postgres:16');
     expect(html).toContain('class="tag tag-ok"');
   });
