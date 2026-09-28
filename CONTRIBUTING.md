@@ -37,8 +37,8 @@ Everyone taking part is expected to follow the [Code of Conduct](./CODE_OF_CONDU
 | Docker | optional | Run Linux tests from macOS or Windows |
 
 ```bash
-git clone https://github.com/<owner>/ci-telemetry.git
-cd ci-telemetry
+git clone https://github.com/NISHANTH1221/action-telemetry.git
+cd action-telemetry
 npm ci
 (cd collector && cargo build)
 ```

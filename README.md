@@ -7,9 +7,9 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/<owner>/ci-telemetry/actions/workflows/ci.yml"><img src="https://github.com/<owner>/ci-telemetry/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
-  <a href="https://github.com/<owner>/ci-telemetry/actions/workflows/e2e.yml"><img src="https://github.com/<owner>/ci-telemetry/actions/workflows/e2e.yml/badge.svg" alt="E2E" /></a>
-  <a href="https://github.com/<owner>/ci-telemetry/releases"><img src="https://img.shields.io/github/v/release/<owner>/ci-telemetry?sort=semver" alt="Release" /></a>
+  <a href="https://github.com/NISHANTH1221/action-telemetry/actions/workflows/ci.yml"><img src="https://github.com/NISHANTH1221/action-telemetry/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
+  <a href="https://github.com/NISHANTH1221/action-telemetry/actions/workflows/e2e.yml"><img src="https://github.com/NISHANTH1221/action-telemetry/actions/workflows/e2e.yml/badge.svg" alt="E2E" /></a>
+  <a href="https://github.com/NISHANTH1221/action-telemetry/releases"><img src="https://img.shields.io/github/v/release/NISHANTH1221/action-telemetry?sort=semver" alt="Release" /></a>
   <a href="./LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="License: MIT" /></a>
   <img src="https://img.shields.io/badge/collector-Rust-orange?logo=rust" alt="Collector: Rust" />
   <img src="https://img.shields.io/badge/runtime-node24-339933?logo=node.js&logoColor=white" alt="Runtime: node24" />
@@ -20,7 +20,7 @@
   <a href="#-self-hosted-runners">Self-hosted runners</a> ·
   <a href="#-faq">FAQ</a> ·
   <a href="./CONTRIBUTING.md">Contributing</a> ·
-  <a href="https://github.com/<owner>/ci-telemetry/issues">Issues</a>
+  <a href="https://github.com/NISHANTH1221/action-telemetry/issues">Issues</a>
 </p>
 
 <p align="center">
@@ -89,7 +89,7 @@ jobs:
       contents: read
       actions: read            # lets the post step read per-step timings
     steps:
-      - uses: <owner>/ci-telemetry@v1   # ← first step
+      - uses: NISHANTH1221/action-telemetry@v1   # ← first step
       - uses: actions/checkout@v4
       - run: make build
       - run: make test
@@ -116,7 +116,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions: { contents: read, actions: read }
     steps:
-      - uses: <owner>/ci-telemetry@v1
+      - uses: NISHANTH1221/action-telemetry@v1
       - uses: actions/checkout@v4
       - run: npm ci && npm run lint
 
@@ -124,7 +124,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions: { contents: read, actions: read }
     steps:
-      - uses: <owner>/ci-telemetry@v1
+      - uses: NISHANTH1221/action-telemetry@v1
       - uses: actions/checkout@v4
       - run: npm ci && npm test
 ```
@@ -145,7 +145,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions: { contents: read, actions: read }
     steps:
-      - uses: <owner>/ci-telemetry@v1
+      - uses: NISHANTH1221/action-telemetry@v1
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: { node-version: ${{ matrix.node }} }
@@ -155,7 +155,7 @@ jobs:
 If you'd rather have readable names, set `artifact-name`, and make sure it's unique per leg:
 
 ```yaml
-      - uses: <owner>/ci-telemetry@v1
+      - uses: NISHANTH1221/action-telemetry@v1
         with:
           artifact-name: telemetry-node-${{ matrix.node }}
 ```
@@ -177,7 +177,7 @@ jobs:
         image: postgres:16
         env: { POSTGRES_PASSWORD: postgres }
     steps:
-      - uses: <owner>/ci-telemetry@v1
+      - uses: NISHANTH1221/action-telemetry@v1
       - uses: actions/checkout@v4
       - run: docker compose up -d && make integration-test
 ```
@@ -190,7 +190,7 @@ The report then includes a table for each container (CPU, peak memory, OOM kills
 <summary><strong>Tuning sampling and output</strong></summary>
 
 ```yaml
-      - uses: <owner>/ci-telemetry@v1
+      - uses: NISHANTH1221/action-telemetry@v1
         with:
           interval: 2              # sample every 2 s (default 1)
           process-interval: 0      # turn off top-process snapshots
@@ -482,7 +482,7 @@ Yes. `report.json` has a versioned [JSON Schema](schema/report.schema.json). Dow
 Every release's collector binaries are built in CI from the tagged source and published with [build provenance attestations](https://docs.github.com/actions/security-for-github-actions/using-artifact-attestations). Verify one with:
 
 ```bash
-gh attestation verify dist/bin/collector-linux-x64 --repo <owner>/ci-telemetry
+gh attestation verify dist/bin/collector-linux-x64 --repo NISHANTH1221/action-telemetry
 ```
 
 For the strongest supply-chain guarantee, pin the action to a full commit SHA rather than `@v1`.
@@ -493,12 +493,12 @@ To report a vulnerability, see [SECURITY.md](./SECURITY.md). Please don't open a
 
 Contributions are welcome, from new metrics and runner support to docs and bug reports. Start with [CONTRIBUTING.md](./CONTRIBUTING.md): it covers the dev setup (Node 24 + Rust stable), the repository layout, testing on Linux, the "commit `dist/`" rule and the PR checklist. Everyone taking part is expected to follow the [Code of Conduct](./CODE_OF_CONDUCT.md).
 
-- 🐛 **Bugs:** [open an issue](https://github.com/<owner>/ci-telemetry/issues/new/choose) and attach the run's `report.json` (its `capabilities` block usually explains a lot).
+- 🐛 **Bugs:** [open an issue](https://github.com/NISHANTH1221/action-telemetry/issues/new/choose) and attach the run's `report.json` (its `capabilities` block usually explains a lot).
 - 💡 **Ideas:** open a feature request describing the question you wanted the report to answer.
 
 ## 🏷 Versioning
 
-Releases follow [Semantic Versioning](https://semver.org). The major tag (`v1`) moves to the latest compatible release, so `uses: <owner>/ci-telemetry@v1` picks up fixes automatically. `report.json` carries its own `schema_version`, which only changes on a major release. See [CHANGELOG.md](./CHANGELOG.md).
+Releases follow [Semantic Versioning](https://semver.org). The major tag (`v1`) moves to the latest compatible release, so `uses: NISHANTH1221/action-telemetry@v1` picks up fixes automatically. `report.json` carries its own `schema_version`, which only changes on a major release. See [CHANGELOG.md](./CHANGELOG.md).
 
 ## 📄 License
 

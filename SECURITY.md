@@ -11,7 +11,7 @@
 
 **Please don't report security issues in public issues, discussions or pull requests.**
 
-Report them privately through GitHub's [private vulnerability reporting](https://github.com/<owner>/ci-telemetry/security/advisories/new). Include:
+Report them privately through GitHub's [private vulnerability reporting](https://github.com/NISHANTH1221/action-telemetry/security/advisories/new). Include:
 
 - the affected version or commit,
 - a description of the issue and its impact,
@@ -43,5 +43,5 @@ For your own threat modelling:
 Pin the action to a full commit SHA, and verify release binaries with:
 
 ```bash
-gh attestation verify dist/bin/collector-linux-x64 --repo <owner>/ci-telemetry
+gh attestation verify dist/bin/collector-linux-x64 --repo NISHANTH1221/action-telemetry
 ```

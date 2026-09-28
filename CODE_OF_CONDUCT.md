@@ -14,4 +14,4 @@ This project follows the [Contributor Covenant, version 2.1](https://www.contrib
 
 ## Reporting
 
-Report unacceptable behaviour privately to the maintainers at **<conduct-contact>**. All reports will be reviewed promptly and kept confidential. Maintainers will act in line with the Contributor Covenant's [enforcement guidelines](https://www.contributor-covenant.org/version/2/1/code_of_conduct/#enforcement-guidelines).
+Report unacceptable behaviour privately by messaging the maintainer, [@NISHANTH1221](https://github.com/NISHANTH1221), or through a [private advisory](https://github.com/NISHANTH1221/action-telemetry/security/advisories/new) if the matter is sensitive. All reports will be reviewed promptly and kept confidential. Maintainers will act in line with the Contributor Covenant's [enforcement guidelines](https://www.contributor-covenant.org/version/2/1/code_of_conduct/#enforcement-guidelines).
