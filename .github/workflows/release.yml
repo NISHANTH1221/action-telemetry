@@ -1,0 +1,62 @@
+name: release
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release, X.Y.Z'
+        required: true
+permissions:
+  contents: read
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - { runner: ubuntu-latest, arch: x64, target: x86_64-unknown-linux-musl }
+          - { runner: ubuntu-24.04-arm, arch: arm64, target: aarch64-unknown-linux-musl }
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update -q && sudo apt-get install -yq musl-tools
+      - run: rustup target add ${{ matrix.target }}
+      - run: cargo build --release --locked --target ${{ matrix.target }}
+        working-directory: collector
+      - run: mkdir -p out && cp collector/target/${{ matrix.target }}/release/collector out/collector-linux-${{ matrix.arch }}
+      - uses: actions/upload-artifact@v4
+        with: { name: 'bin-${{ matrix.arch }}', path: out/ }
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    env:
+      VERSION: ${{ inputs.version }}
+    steps:
+      - name: Validate version
+        run: '[[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "::error::version must be X.Y.Z"; exit 1; }'
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 24, cache: npm }
+      - run: npm ci && npm test && npm run build
+      - uses: actions/download-artifact@v4
+        with: { pattern: bin-*, path: dist/bin, merge-multiple: true }
+      - run: chmod +x dist/bin/* && ls -l dist/bin
+      - uses: actions/attest-build-provenance@v2
+        with: { subject-path: 'dist/bin/*' }
+      - name: Commit binaries on a tag-only commit and move the major tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout --detach
+          git add -f dist/bin dist/main dist/post
+          git commit -m "release: v$VERSION"
+          git tag "v$VERSION"
+          git tag -f "v${VERSION%%.*}"
+          git push origin "v$VERSION"
+          git push -f origin "v${VERSION%%.*}"
+      - run: gh release create "v$VERSION" --verify-tag --generate-notes dist/bin/*
+        env: { GH_TOKEN: '${{ github.token }}' }
