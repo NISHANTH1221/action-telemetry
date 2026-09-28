@@ -49,4 +49,10 @@ describe('runMain', () => {
     expect(state.enabled).toBeUndefined();
     expect(log.warnings[0]).toBe('ci-telemetry: could not start telemetry: failed to start collector at /x');
   });
+
+  it('never throws even when a dependency throws a non-Error value', () => {
+    const { d, log } = deps({ start: () => { throw null; } });
+    expect(() => runMain(d)).not.toThrow();
+    expect(log.warnings[0]).toBe('ci-telemetry: could not start telemetry: null');
+  });
 });

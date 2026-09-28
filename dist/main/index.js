@@ -25811,21 +25811,26 @@ const collector_control_1 = __nccwpck_require__(6072);
 const inputs_1 = __nccwpck_require__(8422);
 const main_1 = __nccwpck_require__(1730);
 const runner_1 = __nccwpck_require__(4813);
-(0, main_1.runMain)({
-    platform: process.platform,
-    arch: process.arch,
-    pid: process.pid,
-    binDir: path.join(__dirname, '..', 'bin'), // dist/main/index.js → dist/bin
-    env: process.env,
-    readInputs: () => (0, inputs_1.readInputs)(),
-    findWorker: (pid) => (0, runner_1.findRunnerWorkerPid)(pid),
-    start: (o) => (0, collector_control_1.startCollector)(o),
-    saveState: core.saveState,
-    notice: (m) => core.notice(m),
-    warning: (m) => core.warning(m),
-    info: core.info,
-    now: () => Date.now() / 1000,
-});
+try {
+    (0, main_1.runMain)({
+        platform: process.platform,
+        arch: process.arch,
+        pid: process.pid,
+        binDir: path.join(__dirname, '..', 'bin'), // dist/main/index.js → dist/bin
+        env: process.env,
+        readInputs: () => (0, inputs_1.readInputs)(),
+        findWorker: (pid) => (0, runner_1.findRunnerWorkerPid)(pid),
+        start: (o) => (0, collector_control_1.startCollector)(o),
+        saveState: core.saveState,
+        notice: (m) => core.notice(m),
+        warning: (m) => core.warning(m),
+        info: core.info,
+        now: () => Date.now() / 1000,
+    });
+}
+catch {
+    // Defence in depth: runMain already never throws, but the action must never fail the user's job.
+}
 
 
 /***/ }),
@@ -25985,7 +25990,7 @@ function runMain(d) {
         d.info(`ci-telemetry: collector started (pid ${res.pid}), writing to ${res.dataFile}`);
     }
     catch (e) {
-        d.warning(`ci-telemetry: could not start telemetry: ${e.message}`);
+        d.warning(`ci-telemetry: could not start telemetry: ${e instanceof Error ? e.message : String(e)}`);
     }
 }
 

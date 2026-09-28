@@ -51,6 +51,6 @@ export function runMain(d: MainDeps): void {
     d.saveState('enabled', 'true');
     d.info(`ci-telemetry: collector started (pid ${res.pid}), writing to ${res.dataFile}`);
   } catch (e) {
-    d.warning(`ci-telemetry: could not start telemetry: ${(e as Error).message}`);
+    d.warning(`ci-telemetry: could not start telemetry: ${e instanceof Error ? e.message : String(e)}`);
   }
 }
