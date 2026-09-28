@@ -1,0 +1,43 @@
+name: 'CI Job Telemetry'
+description: 'Per-step CPU, memory, pressure, disk, network and Docker telemetry for a job, collected by a ~2 MB Rust sidecar and uploaded as an artifact.'
+branding:
+  icon: 'activity'
+  color: 'gray-dark'
+inputs:
+  interval:
+    description: 'Seconds between samples (1-60).'
+    required: false
+    default: '1'
+  process-interval:
+    description: 'Seconds between top-process snapshots (0 disables, max 300).'
+    required: false
+    default: '5'
+  docker:
+    description: 'Collect per-container CPU, memory, I/O and OOM stats from Docker cgroups.'
+    required: false
+    default: 'true'
+  github-token:
+    description: 'Token used once, in the post step, to read step timings. Needs `actions: read`.'
+    required: false
+    default: '${{ github.token }}'
+  artifact-name:
+    description: 'Artifact name. Default: ci-telemetry-<job>-<attempt>-<hash>.'
+    required: false
+    default: ''
+  retention-days:
+    description: 'Artifact retention in days (1-90).'
+    required: false
+    default: '7'
+  job-summary:
+    description: 'Write a per-step table and findings to the job summary.'
+    required: false
+    default: 'true'
+  html-report:
+    description: 'Include a self-contained report.html in the artifact.'
+    required: false
+    default: 'true'
+runs:
+  using: 'node24'
+  main: 'dist/main/index.js'
+  post: 'dist/post/index.js'
+  post-if: 'always()'
