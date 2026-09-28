@@ -1,0 +1,20 @@
+name: Feature request
+description: Suggest a metric, finding, runner type or report improvement
+labels: [enhancement]
+body:
+  - type: textarea
+    id: question
+    attributes:
+      label: What question about your CI couldn't you answer?
+      description: e.g. "Which test file makes the Test step memory-starved?"
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed change
+  - type: textarea
+    id: cost
+    attributes:
+      label: Cost to the job being measured
+      description: New metrics must stay within the collector's overhead budget (≤ 5 MB RSS, ≤ 0.5 % of one core). Roughly how much would this add?
